@@ -46,8 +46,6 @@ static void GPTMR_Init()
     config.cmp[0] = UINT32_MAX;
     config.enable_cmp_output = true;
     gptmr_channel_config(_WS2812_GPTMR_PTR, WS2812_GPTMR_CHANNLE, &config, false);
-    gptmr_enable_irq(_WS2812_GPTMR_PTR, GPTMR_CH_RLD_IRQ_MASK(WS2812_GPTMR_CHANNLE));
-    intc_m_enable_irq_with_priority(_WS2812_TMR_IRQ, 3);
     gptmr_start_counter(_WS2812_GPTMR_PTR, WS2812_GPTMR_CHANNLE);
     dmamux_config(WS2812_DMAMUX, WS2812_DMA_CHANNLE, _WS2812_DMAMUX_SRC, true);
     dma_enable_channel(WS2812_DMA, WS2812_DMA_CHANNLE);
