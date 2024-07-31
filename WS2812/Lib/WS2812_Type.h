@@ -18,9 +18,9 @@ typedef struct {
 /**
  * @brief WS2812 灯珠链表，其中有一个指向灯珠buffer的地址和下一个灯珠的链表
  */
- typedef struct WS2812_LED {
-     uint32_t *buffer;
-     struct WS2812_LED *next;
- }WS2812_LED_t;
+typedef struct WS2812_LED {
+    uint32_t *buffer;
+    struct WS2812_LED *next;
+} WS2812_LED_t;
 
 #endif //WS2812_TYPE_H
