@@ -20,23 +20,34 @@ int main(void)
 {
     board_init();
     WS2812_Init();
-    board_delay_ms(10);
-    WS2812_SetPixel(0, 0, 0, 0);
-    WS2812_SetPixel(1, 0, 0, 0);
-    WS2812_Update();
     while (1) {
         /* when the dma transfer reload value complete, need wait the last pulse complete*/
-        WS2812_SetPixel(0, 255, 0, 0);
-        WS2812_Update();
-        board_delay_ms(1000);
+        // 单个灯彩虹效果
 
-        WS2812_SetPixel(0, 0, 255, 0);
-        WS2812_Update();
-        board_delay_ms(1000);
-
-        WS2812_SetPixel(0, 0, 0, 255);
-        WS2812_Update();
-        board_delay_ms(1000);
+        for (int j = 0; j < 256; j++) {
+            uint8_t r, g, b;
+            uint8_t pos = j & 255;
+            if (pos < 85) {
+                r = pos * 3;
+                g = 255 - pos * 3;
+                b = 0;
+            } else if (pos < 170) {
+                pos -= 85;
+                r = 255 - pos * 3;
+                g = 0;
+                b = pos * 3;
+            } else {
+                pos -= 170;
+                r = 0;
+                g = pos * 3;
+                b = 255 - pos * 3;
+            }
+            for (size_t i = 0; i < WS2812_LED_NUM; i++) {
+                WS2812_SetPixel(i, r, g, b);
+            }
+            WS2812_Update();
+            board_delay_ms(10);
+        }
     }
     return 0;
 }
