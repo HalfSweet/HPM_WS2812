@@ -1,6 +1,8 @@
 #ifndef WS2812_TYPE_H
 #define WS2812_TYPE_H
 
+#include <stdint.h>
+
 /**
  * @brief WS2812 灯珠连接方式
  *

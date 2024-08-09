@@ -62,7 +62,7 @@ void WS2812_LEDConnectInit(void)
     // 默认情况下每一个灯都是首尾相连，链表中的第一个灯的数据是第一个灯的数据，最后一个灯的数据是第一个灯的数据
     for (size_t i = 0; i < WS2812_LED_NUM; i++)
     {
-        WS2812_LED[i].buffer = &WS2812_LED_Buffer[i][0];
+        WS2812_LED[i].buffer = &WS2812_LED_Buffer[i];
         if (i < WS2812_LED_NUM - 1)
         {
             WS2812_LED[i].next = &WS2812_LED[(i + 1) % WS2812_LED_NUM];
