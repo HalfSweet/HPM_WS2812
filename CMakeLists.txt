@@ -1,13 +1,5 @@
-cmake_minimum_required(VERSION 3.13)
+# Copyright (c) 2024 HalfSweet
+# SPDX-License-Identifier: MIT
 
-find_package(hpm-sdk REQUIRED HINTS $ENV{HPM_SDK_BASE})
-
-project(example)
-
-sdk_inc(${CMAKE_CURRENT_SOURCE_DIR}/)
-add_subdirectory(WS2812)
-
-sdk_app_src(example.c)
-
-
-generate_ide_projects()
+sdk_inc(${CMAKE_CURRENT_SOURCE_DIR}/Lib)
+sdk_src(${CMAKE_CURRENT_SOURCE_DIR}/Lib/WS2812.c)
