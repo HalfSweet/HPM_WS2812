@@ -3,6 +3,7 @@
 #include "hpm_dmamux_drv.h"
 #include "hpm_gptmr_drv.h"
 #include "hpm_sysctl_drv.h"
+#include <hpm_dma_mgr.h>
 #include <stdio.h>
 
 #ifdef HPMSOC_HAS_HPMSDK_DMAV2
@@ -18,7 +19,19 @@
 int main(void)
 {
     board_init();
+    dma_mgr_init();
     WS2812_Init();
+
+    while (1)
+    {
+        for (int j = 0; j < 256; j++)
+        {
+            WS2812_SetPixel(0, j, j, j);
+            WS2812_Update();
+            board_delay_ms(100);
+        }
+    }
+
     while (1)
     {
         /* when the dma transfer reload value complete, need wait the last pulse complete*/
@@ -52,8 +65,9 @@ int main(void)
             {
                 WS2812_SetPixel(i, r, g, b);
             }
+            printf("r = 0x%02x, g = 0x%02x, b = 0x%02x\n", r, g, b);
             WS2812_Update();
-            board_delay_ms(10);
+            board_delay_ms(100);
         }
     }
     return 0;
