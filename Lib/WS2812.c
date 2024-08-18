@@ -139,70 +139,66 @@ void DMA_Init()
     resource = &dma_resource_pool;
     dma_mgr_get_default_chn_config(&ch_config);
 
-    if (dma_mgr_request_resource(resource) == status_success)
+    for (int i = 0; i < WS2812_LED_NUM - 1; i++)
     {
-        for (int i = 0; i < WS2812_LED_NUM - 1; i++)
-        {
-            ch_config.src_addr = core_local_mem_to_sys_address(HPM_CORE0, (uint32_t)&WS2812_LED[i + 1].buffer[0]);
-            ch_config.src_mode = DMA_HANDSHAKE_MODE_NORMAL;
-            ch_config.dst_addr = (uint32_t)&_WS2812_GPTMR_PTR->CHANNEL[WS2812_GPTMR_CHANNLE].CMP[0];
-            ch_config.src_burst_size = DMA_NUM_TRANSFER_PER_BURST_1T;
-            ch_config.src_width = _WS2812_DATA_WIDTH;
-            ch_config.dst_width = _WS2812_DATA_WIDTH;
-            ch_config.dst_mode = DMA_HANDSHAKE_MODE_HANDSHAKE;
-            ch_config.dst_addr_ctrl = DMA_ADDRESS_CONTROL_FIXED;
-            ch_config.size_in_byte = 96;
-            ch_config.en_dmamux = true;
-            ch_config.dmamux_src = _WS2812_DMAMUX_SRC;
-            if (i == (WS2812_LED_NUM - 2))
-            {
-                ch_config.linked_ptr = 0;
-            }
-            else
-            {
-                ch_config.linked_ptr = core_local_mem_to_sys_address(HPM_CORE0, (uint32_t)&descriptors[i + 1]);
-            }
-            if (status_success !=
-                dma_mgr_config_linked_descriptor(resource, &ch_config, (dma_mgr_linked_descriptor_t *)&descriptors[i]))
-            {
-                return;
-            }
-        }
-
-        dma_mgr_get_default_chn_config(&ch_config);
-        //    ch_config.src_addr = core_local_mem_to_sys_address(HPM_CORE0, (uint32_t) WS2812_LED[0].buffer);
-        ch_config.src_addr = core_local_mem_to_sys_address(HPM_CORE0, (uint32_t)&WS2812_LED[0].buffer[0]);
-        ch_config.dst_addr = (uint32_t)&_WS2812_GPTMR_PTR->CHANNEL[WS2812_GPTMR_CHANNLE].CMP[0];
+        ch_config.src_addr = core_local_mem_to_sys_address(HPM_CORE0, (uint32_t)&WS2812_LED[i + 1].buffer[0]);
         ch_config.src_mode = DMA_HANDSHAKE_MODE_NORMAL;
-        ch_config.src_width = _WS2812_DATA_WIDTH;
-        ch_config.src_addr_ctrl = DMA_ADDRESS_CONTROL_INCREMENT;
+        ch_config.dst_addr = (uint32_t)&_WS2812_GPTMR_PTR->CHANNEL[WS2812_GPTMR_CHANNLE].CMP[0];
         ch_config.src_burst_size = DMA_NUM_TRANSFER_PER_BURST_1T;
+        ch_config.src_width = _WS2812_DATA_WIDTH;
         ch_config.dst_width = _WS2812_DATA_WIDTH;
-        ch_config.dst_addr_ctrl = DMA_ADDRESS_CONTROL_FIXED;
         ch_config.dst_mode = DMA_HANDSHAKE_MODE_HANDSHAKE;
+        ch_config.dst_addr_ctrl = DMA_ADDRESS_CONTROL_FIXED;
         ch_config.size_in_byte = 96;
         ch_config.en_dmamux = true;
         ch_config.dmamux_src = _WS2812_DMAMUX_SRC;
-#if WS2812_LED_NUM == 1
-        ch_config.linked_ptr = 0;
-#else
-        ch_config.linked_ptr = core_local_mem_to_sys_address(HPM_CORE0, (uint32_t)&descriptors[0]);
-
-#endif
-        if (status_success != dma_mgr_setup_channel(resource, &ch_config))
+        ch_config.en_dmamux = true;
+        ch_config.dmamux_src = _WS2812_DMAMUX_SRC;
+        if (i == (WS2812_LED_NUM - 2))
         {
-            printf("DMA setup channel failed\n");
+            ch_config.linked_ptr = 0;
+        }
+        else
+        {
+            ch_config.linked_ptr = core_local_mem_to_sys_address(HPM_CORE0, (uint32_t)&descriptors[i + 1]);
+        }
+        if (status_success !=
+            dma_mgr_config_linked_descriptor(resource, &ch_config, (dma_mgr_linked_descriptor_t *)&descriptors[i]))
+        {
+            printf("generate dma desc fail\n");
             return;
         }
-        dma_mgr_setup_channel(resource, &ch_config);
-        dma_mgr_install_chn_tc_callback(resource, WS2812_DMA_Callback, NULL);
-        dma_mgr_enable_chn_irq(resource, DMA_MGR_INTERRUPT_MASK_TC);
-        dma_mgr_enable_dma_irq_with_priority(resource, 1);
     }
-    else
+
+    dma_mgr_get_default_chn_config(&ch_config);
+    //    ch_config.src_addr = core_local_mem_to_sys_address(HPM_CORE0, (uint32_t) WS2812_LED[0].buffer);
+    ch_config.src_addr = core_local_mem_to_sys_address(HPM_CORE0, (uint32_t)&WS2812_LED[0].buffer[0]);
+    ch_config.dst_addr = (uint32_t)&_WS2812_GPTMR_PTR->CHANNEL[WS2812_GPTMR_CHANNLE].CMP[0];
+    ch_config.src_mode = DMA_HANDSHAKE_MODE_NORMAL;
+    ch_config.src_width = _WS2812_DATA_WIDTH;
+    ch_config.src_addr_ctrl = DMA_ADDRESS_CONTROL_INCREMENT;
+    ch_config.src_burst_size = DMA_NUM_TRANSFER_PER_BURST_1T;
+    ch_config.dst_width = _WS2812_DATA_WIDTH;
+    ch_config.dst_addr_ctrl = DMA_ADDRESS_CONTROL_FIXED;
+    ch_config.dst_mode = DMA_HANDSHAKE_MODE_HANDSHAKE;
+    ch_config.size_in_byte = 96;
+    ch_config.en_dmamux = true;
+    ch_config.dmamux_src = _WS2812_DMAMUX_SRC;
+#if WS2812_LED_NUM == 1
+    ch_config.linked_ptr = 0;
+#else
+    ch_config.linked_ptr = core_local_mem_to_sys_address(HPM_CORE0, (uint32_t)&descriptors[0]);
+
+#endif
+    if (status_success != dma_mgr_setup_channel(resource, &ch_config))
     {
-        printf("DMA request resource failed\n");
+        printf("DMA setup channel failed\n");
+        return;
     }
+    dma_mgr_setup_channel(resource, &ch_config);
+    dma_mgr_install_chn_tc_callback(resource, WS2812_DMA_Callback, NULL);
+    dma_mgr_enable_chn_irq(resource, DMA_MGR_INTERRUPT_MASK_TC);
+    dma_mgr_enable_dma_irq_with_priority(resource, 1);
 }
 
 void WS2812_Init(void)
@@ -224,6 +220,7 @@ void WS2812_Init(void)
     }
 
     HPM_IOC->PAD[_WS2812_DIN_PIN].FUNC_CTL = _WS2812_DIN_FUNC; // 初始化GPIO
+    dma_mgr_request_resource(&dma_resource_pool);
     DMA_Init();                                                // 初始化DMA
     GPTMR_Init();                                              // 初始化GPTMR
 }
