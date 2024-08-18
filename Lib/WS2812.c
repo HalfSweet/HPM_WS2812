@@ -17,13 +17,13 @@ static uint32_t _bit0_pluse_width = 0;
 static uint32_t _bit1_pluse_width = 0;
 
 static const uint32_t _WS2812_Freq = 800000;
-static const uint32_t _WS2812_DATA_WIDTH = DMA_TRANSFER_WIDTH_WORD;
+static const uint32_t _WS2812_DATA_WIDTH = DMA_MGR_TRANSFER_WIDTH_WORD;
 
-ATTR_PLACE_AT_NONCACHEABLE_WITH_ALIGNMENT(8)
+ATTR_PLACE_AT_NONCACHEABLE_BSS_WITH_ALIGNMENT(8)
 static dma_linked_descriptor_t descriptors[WS2812_LED_NUM - 1];
 static dma_resource_t dma_resource_pool;
 
-ATTR_PLACE_AT_NONCACHEABLE_WITH_ALIGNMENT(4)
+ATTR_PLACE_AT_NONCACHEABLE_BSS_WITH_ALIGNMENT(4)
 static uint32_t WS2812_LED_Buffer
 #if WS2812_LED_CONNECT == WS2812_CONNECT_LINE
     [WS2812_LED_NUM][24];
@@ -142,16 +142,16 @@ void DMA_Init()
     for (int i = 0; i < WS2812_LED_NUM - 1; i++)
     {
         ch_config.src_addr = core_local_mem_to_sys_address(HPM_CORE0, (uint32_t)&WS2812_LED[i + 1].buffer[0]);
-        ch_config.src_mode = DMA_HANDSHAKE_MODE_NORMAL;
         ch_config.dst_addr = (uint32_t)&_WS2812_GPTMR_PTR->CHANNEL[WS2812_GPTMR_CHANNLE].CMP[0];
-        ch_config.src_burst_size = DMA_NUM_TRANSFER_PER_BURST_1T;
+        ch_config.src_mode = DMA_MGR_HANDSHAKE_MODE_NORMAL;
         ch_config.src_width = _WS2812_DATA_WIDTH;
+        ch_config.src_addr_ctrl = DMA_MGR_ADDRESS_CONTROL_INCREMENT;
+        ch_config.src_burst_size = DMA_MGR_NUM_TRANSFER_PER_BURST_1T;
         ch_config.dst_width = _WS2812_DATA_WIDTH;
-        ch_config.dst_mode = DMA_HANDSHAKE_MODE_HANDSHAKE;
-        ch_config.dst_addr_ctrl = DMA_ADDRESS_CONTROL_FIXED;
+        ch_config.dst_addr_ctrl = DMA_MGR_ADDRESS_CONTROL_FIXED;
+        ch_config.dst_mode = DMA_MGR_HANDSHAKE_MODE_HANDSHAKE;
         ch_config.size_in_byte = 96;
-        ch_config.en_dmamux = true;
-        ch_config.dmamux_src = _WS2812_DMAMUX_SRC;
+        ch_config.priority = DMA_MGR_CHANNEL_PRIORITY_HIGH;
         ch_config.en_dmamux = true;
         ch_config.dmamux_src = _WS2812_DMAMUX_SRC;
         if (i == (WS2812_LED_NUM - 2))
@@ -168,19 +168,20 @@ void DMA_Init()
             printf("generate dma desc fail\n");
             return;
         }
+        descriptors[i].ctrl &= ~DMA_MGR_INTERRUPT_MASK_TC;
     }
 
     dma_mgr_get_default_chn_config(&ch_config);
     //    ch_config.src_addr = core_local_mem_to_sys_address(HPM_CORE0, (uint32_t) WS2812_LED[0].buffer);
     ch_config.src_addr = core_local_mem_to_sys_address(HPM_CORE0, (uint32_t)&WS2812_LED[0].buffer[0]);
     ch_config.dst_addr = (uint32_t)&_WS2812_GPTMR_PTR->CHANNEL[WS2812_GPTMR_CHANNLE].CMP[0];
-    ch_config.src_mode = DMA_HANDSHAKE_MODE_NORMAL;
+    ch_config.src_mode = DMA_MGR_HANDSHAKE_MODE_NORMAL;
     ch_config.src_width = _WS2812_DATA_WIDTH;
-    ch_config.src_addr_ctrl = DMA_ADDRESS_CONTROL_INCREMENT;
-    ch_config.src_burst_size = DMA_NUM_TRANSFER_PER_BURST_1T;
+    ch_config.src_addr_ctrl = DMA_MGR_ADDRESS_CONTROL_INCREMENT;
+    ch_config.src_burst_size = DMA_MGR_NUM_TRANSFER_PER_BURST_1T;
     ch_config.dst_width = _WS2812_DATA_WIDTH;
-    ch_config.dst_addr_ctrl = DMA_ADDRESS_CONTROL_FIXED;
-    ch_config.dst_mode = DMA_HANDSHAKE_MODE_HANDSHAKE;
+    ch_config.dst_addr_ctrl = DMA_MGR_ADDRESS_CONTROL_FIXED;
+    ch_config.dst_mode = DMA_MGR_HANDSHAKE_MODE_HANDSHAKE;
     ch_config.size_in_byte = 96;
     ch_config.priority = DMA_MGR_CHANNEL_PRIORITY_HIGH;
     ch_config.en_dmamux = true;
