@@ -182,6 +182,7 @@ void DMA_Init()
     ch_config.dst_addr_ctrl = DMA_ADDRESS_CONTROL_FIXED;
     ch_config.dst_mode = DMA_HANDSHAKE_MODE_HANDSHAKE;
     ch_config.size_in_byte = 96;
+    ch_config.priority = DMA_MGR_CHANNEL_PRIORITY_HIGH;
     ch_config.en_dmamux = true;
     ch_config.dmamux_src = _WS2812_DMAMUX_SRC;
 #if WS2812_LED_NUM == 1
