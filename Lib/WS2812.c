@@ -196,7 +196,7 @@ void DMA_Init()
         printf("DMA setup channel failed\n");
         return;
     }
-    dma_mgr_setup_channel(resource, &ch_config);
+//    dma_mgr_setup_channel(resource, &ch_config);
     dma_mgr_install_chn_tc_callback(resource, WS2812_DMA_Callback, NULL);
     dma_mgr_enable_chn_irq(resource, DMA_MGR_INTERRUPT_MASK_TC);
     dma_mgr_enable_dma_irq_with_priority(resource, 1);
@@ -235,7 +235,7 @@ void WS2812_Update(void)
     DMA_Init();                                                // 每次都重新配置一次
     HPM_IOC->PAD[_WS2812_DIN_PIN].FUNC_CTL = _WS2812_DIN_FUNC; // 初始化GPIO
 
-    //    gptmr_enable_irq(_WS2812_GPTMR_PTR, GPTMR_CH_RLD_IRQ_MASK(WS2812_GPTMR_CHANNLE));
+
     dma_mgr_enable_channel(&dma_resource_pool);
     gptmr_start_counter(_WS2812_GPTMR_PTR, WS2812_GPTMR_CHANNLE);
 }
