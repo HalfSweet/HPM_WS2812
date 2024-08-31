@@ -18,8 +18,26 @@ void WS2812_Init(void);
 void WS2812_Update(void);
 bool WS2812_IsBusy(void);
 
-#if WS2812_LED_CONNECT == WS2812_CONNECT_LINE
 void WS2812_SetPixel(uint32_t index, uint8_t r, uint8_t g, uint8_t b);
-#endif
+
+/**
+ * @brief 将现在的RGB值混合之前的RGB值
+ *
+ * @param index 灯珠索引
+ * @param r 红色
+ * @param g 绿色
+ * @param b 蓝色
+ */
+void WS2812_MixPixel(uint32_t index, uint8_t r, uint8_t g, uint8_t b);
+
+/**
+ * @brief 将现在的RGB值逆混合之前的RGB值
+ *
+ * @param index 灯珠索引
+ * @param r 红色
+ * @param g 绿色
+ * @param b 蓝色
+ */
+void WS2812_ReverseMixPixel(uint32_t index, uint8_t r, uint8_t g, uint8_t b);
 
 #endif // WS2812_H

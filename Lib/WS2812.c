@@ -35,6 +35,8 @@ static uint32_t WS2812_LED_Buffer
 
 static WS2812_LED_t WS2812_LED[WS2812_LED_NUM];
 
+static WS2812_RGB_t WS2812_Buffer[WS2812_LED_NUM];
+
 static volatile bool dma_is_done = false;
 
 static void GPTMR_Init()
@@ -197,7 +199,7 @@ void DMA_Init()
         printf("DMA setup channel failed\n");
         return;
     }
-//    dma_mgr_setup_channel(resource, &ch_config);
+    //    dma_mgr_setup_channel(resource, &ch_config);
     dma_mgr_install_chn_tc_callback(resource, WS2812_DMA_Callback, NULL);
     dma_mgr_enable_chn_irq(resource, DMA_MGR_INTERRUPT_MASK_TC);
     dma_mgr_enable_dma_irq_with_priority(resource, 1);
@@ -221,35 +223,29 @@ void WS2812_Init(void)
         WS2812_SetPixel(i, 0, 0, 0);
     }
 
+    for (int i = 0; i < WS2812_LED_NUM; i++)
+    {
+        for (int j = 0; j < 24; j++)
+        {
+            WS2812_LED_Buffer[i][j] = UINT32_MAX;
+        }
+    }
+
     HPM_IOC->PAD[_WS2812_DIN_PIN].FUNC_CTL = _WS2812_DIN_FUNC; // 初始化GPIO
     dma_mgr_request_resource(&dma_resource_pool);
-    DMA_Init();                                                // 初始化DMA
-    GPTMR_Init();                                              // 初始化GPTMR
+    DMA_Init();   // 初始化DMA
+    GPTMR_Init(); // 初始化GPTMR
 }
 
 void WS2812_Update(void)
 {
-    while (!dma_is_done)
-        ;
-    dma_is_done = false;
-
-    DMA_Init();                                                // 每次都重新配置一次
-    HPM_IOC->PAD[_WS2812_DIN_PIN].FUNC_CTL = _WS2812_DIN_FUNC; // 初始化GPIO
-
-
-    dma_mgr_enable_channel(&dma_resource_pool);
-    gptmr_start_counter(_WS2812_GPTMR_PTR, WS2812_GPTMR_CHANNLE);
-}
-
-void WS2812_SetPixel(uint32_t index, uint8_t r, uint8_t g, uint8_t b)
-{
-    if (index < WS2812_LED_NUM)
+    for (int index = 0; index < WS2812_LED_NUM; index++)
     {
         uint32_t *buf = &WS2812_LED_Buffer[index][0];
         // GRB
         for (int i = 0; i < 8; i++)
         {
-            if (g & (1 << (7 - i)))
+            if (WS2812_Buffer[index].g & (1 << (7 - i)))
             {
                 buf[i] = _bit0_pluse_width;
             }
@@ -258,7 +254,7 @@ void WS2812_SetPixel(uint32_t index, uint8_t r, uint8_t g, uint8_t b)
                 buf[i] = _bit1_pluse_width;
             }
 
-            if (r & (1 << (7 - i)))
+            if (WS2812_Buffer[index].r & (1 << (7 - i)))
             {
                 buf[i + 8] = _bit0_pluse_width;
             }
@@ -267,7 +263,7 @@ void WS2812_SetPixel(uint32_t index, uint8_t r, uint8_t g, uint8_t b)
                 buf[i + 8] = _bit1_pluse_width;
             }
 
-            if (b & (1 << (7 - i)))
+            if (WS2812_Buffer[index].b & (1 << (7 - i)))
             {
                 buf[i + 16] = _bit0_pluse_width;
             }
@@ -276,10 +272,81 @@ void WS2812_SetPixel(uint32_t index, uint8_t r, uint8_t g, uint8_t b)
                 buf[i + 16] = _bit1_pluse_width;
             }
         }
+//        printf("index: %d, r: %d, g: %d, b: %d\n", index, WS2812_Buffer[index].r, WS2812_Buffer[index].g, WS2812_Buffer[index].b);
     }
+
+    while (!dma_is_done)
+        ;
+    dma_is_done = false;
+
+    DMA_Init();                                                // 每次都重新配置一次
+    HPM_IOC->PAD[_WS2812_DIN_PIN].FUNC_CTL = _WS2812_DIN_FUNC; // 初始化GPIO
+
+    dma_mgr_enable_channel(&dma_resource_pool);
+    gptmr_start_counter(_WS2812_GPTMR_PTR, WS2812_GPTMR_CHANNLE);
+}
+
+void WS2812_SetPixel(uint32_t index, uint8_t r, uint8_t g, uint8_t b)
+{
+    if (index >= WS2812_LED_NUM)
+    {
+        return;
+    }
+    WS2812_Buffer[index].r = r;
+    WS2812_Buffer[index].g = g;
+    WS2812_Buffer[index].b = b;
 }
 
 bool WS2812_IsBusy(void)
 {
     return !dma_is_done;
+}
+
+void WS2812_MixPixel(uint32_t index, uint8_t r, uint8_t g, uint8_t b)
+{
+    if (index >= WS2812_LED_NUM)
+    {
+        return;
+    }
+    WS2812_Buffer[index].r = (WS2812_Buffer[index].r + r) / 2;
+    WS2812_Buffer[index].g = (WS2812_Buffer[index].g + g) / 2;
+    WS2812_Buffer[index].b = (WS2812_Buffer[index].b + b) / 2;
+}
+
+void WS2812_ReverseMixPixel(uint32_t index, uint8_t r, uint8_t g, uint8_t b)
+{
+    if (index >= WS2812_LED_NUM)
+    {
+        return;
+    }
+    uint8_t temp;
+    temp = (WS2812_Buffer[index].r * 2);
+    if (temp > r)
+    {
+        WS2812_Buffer[index].r = temp - r;
+    }
+    else
+    {
+        WS2812_Buffer[index].r = 0;
+    }
+
+    temp = (WS2812_Buffer[index].g * 2);
+    if (temp > g)
+    {
+        WS2812_Buffer[index].g = temp - g;
+    }
+    else
+    {
+        WS2812_Buffer[index].g = 0;
+    }
+
+    temp = (WS2812_Buffer[index].b * 2);
+    if (temp > b)
+    {
+        WS2812_Buffer[index].b = temp - b;
+    }
+    else
+    {
+        WS2812_Buffer[index].b = 0;
+    }
 }
