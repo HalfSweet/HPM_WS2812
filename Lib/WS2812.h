@@ -2,6 +2,7 @@
 #define WS2812_H
 
 #include "WS2812_Conf.h"
+#include <stdbool.h>
 
 #define CONCATENATE_DETAIL(x, y) x##y
 #define CONCATENATE(x, y)        CONCATENATE_DETAIL(x, y)
@@ -15,6 +16,7 @@
 
 void WS2812_Init(void);
 void WS2812_Update(void);
+bool WS2812_IsBusy(void);
 
 #if WS2812_LED_CONNECT == WS2812_CONNECT_LINE
 void WS2812_SetPixel(uint32_t index, uint8_t r, uint8_t g, uint8_t b);

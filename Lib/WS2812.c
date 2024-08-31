@@ -278,3 +278,8 @@ void WS2812_SetPixel(uint32_t index, uint8_t r, uint8_t g, uint8_t b)
         }
     }
 }
+
+bool WS2812_IsBusy(void)
+{
+    return !dma_is_done;
+}
