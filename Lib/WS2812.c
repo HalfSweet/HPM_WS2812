@@ -12,19 +12,34 @@
 #include <hpm_soc.h>
 #include <string.h>
 
-static uint32_t _gptmr_freq = 0;
-static uint32_t _bit0_pluse_width = 0;
-static uint32_t _bit1_pluse_width = 0;
 
+#if WS2812_USE_SPI
+#include "hpm_spi.h"
+#define  WS212_SPI_FREQ            (8000000UL)
+#endif
+
+#define _BUFFER_CONCAT3(x, y, z)     x ## y ## z
+#define BUFFER_CONCAT3(x, y, z)     _BUFFER_CONCAT3(x, y, z)
+
+typedef BUFFER_CONCAT3(uint, WS2812_BIT_TYPE_SIZE, _t)  buffer_type;
+
+#if !WS2812_USE_SPI
+static uint32_t _gptmr_freq = 0;
+static buffer_type _bit0_pluse_width = 0;
+static buffer_type _bit1_pluse_width = 0;
 static const uint32_t _WS2812_Freq = 800000;
 static const uint32_t _WS2812_DATA_WIDTH = DMA_MGR_TRANSFER_WIDTH_WORD;
-
 ATTR_PLACE_AT_NONCACHEABLE_BSS_WITH_ALIGNMENT(8)
 static dma_linked_descriptor_t descriptors[WS2812_LED_NUM - 1];
 static dma_resource_t dma_resource_pool;
+#else
+static buffer_type _bit0_pluse_width = 0xe0;  /* 0b11100000 40% high */
+static buffer_type _bit1_pluse_width = 0xF8;  /* 0b11111000 60% high */
+#endif
+
 
 ATTR_PLACE_AT_NONCACHEABLE_BSS_WITH_ALIGNMENT(4)
-static uint32_t WS2812_LED_Buffer
+static buffer_type WS2812_LED_Buffer
 #if WS2812_LED_CONNECT == WS2812_CONNECT_LINE
     [WS2812_LED_NUM][24];
 #elif WS2812_LED_CONNECT == WS2812_CONNECT_MATRIX
@@ -33,12 +48,13 @@ static uint32_t WS2812_LED_Buffer
     [WS2812_LED_COL][WS2812_LED_ROW][WS2812_LED_LAYER][24];
 #endif
 
-static WS2812_LED_t WS2812_LED[WS2812_LED_NUM];
+ATTR_PLACE_AT_NONCACHEABLE WS2812_LED_t WS2812_LED[WS2812_LED_NUM];
 
-static WS2812_RGB_t WS2812_Buffer[WS2812_LED_NUM];
+ATTR_PLACE_AT_NONCACHEABLE WS2812_RGB_t WS2812_Buffer[WS2812_LED_NUM];
 
 static volatile bool dma_is_done = false;
 
+#if !WS2812_USE_SPI
 static void GPTMR_Init()
 {
     gptmr_channel_config_t config;
@@ -55,14 +71,38 @@ static void GPTMR_Init()
     dma_mgr_enable_channel(&dma_resource_pool);
 }
 
+#else
+static void spi_init(void)
+{
+    spi_initialize_config_t init_config;
+    clock_add_to_group(WS2812_SPI_CLCOK, 0);
+    hpm_spi_get_default_init_config(&init_config);
+    init_config.direction = msb_first;
+    init_config.mode = spi_master_mode;
+    init_config.clk_phase = spi_sclk_sampling_odd_clk_edges;
+    init_config.clk_polarity = spi_sclk_low_idle;
+    init_config.data_len = WS2812_BIT_TYPE_SIZE;
+    /* step.1  initialize spi */
+    if (hpm_spi_initialize(WS2812_SPI, &init_config) != status_success) {
+        WS2812_DEBUG("hpm_spi_initialize fail\n");
+        while (1) {
+        }
+    }
+}
+#endif
+
 /**
- * @brief 初始化LED连接方式，该函数为弱函数，库里仅提供默认的连接方式，用户可以自行实现
+ * @brief Initialize the LED connection method. This function is a weak function.
+ * The library only provides the default connection method. Users can implement it by themselves.
  */
 ATTR_WEAK
 void WS2812_LEDConnectInit(void)
 {
 #if WS2812_LED_CONNECT == WS2812_CONNECT_LINE
-    // 默认情况下每一个灯都是首尾相连，链表中的第一个灯的数据是第一个灯的数据，最后一个灯的数据是第一个灯的数据
+    /* By default, each light is linked end to end.
+     * The data of the first light in the linked list is the data of the first light,
+     * and the data of the last light is the data of the first light.
+     */
     for (size_t i = 0; i < WS2812_LED_NUM; i++)
     {
         WS2812_LED[i].buffer = &WS2812_LED_Buffer[i][0];
@@ -72,8 +112,12 @@ void WS2812_LEDConnectInit(void)
         }
     }
 #elif WS2812_LED_CONNECT == WS2812_CONNECT_MATRIX
-    // 矩阵连接方式，默认每一行的最后一个灯的数据是下一行的第一个灯的数据。
-    // WS2812_LED 始终为一维数组，通过计算行和列的关系，将其映射到一维数组中
+    /* In matrix connection mode,
+     * by default the data of the last light in each row is the data of the first light in the next row.
+     */
+    /* WS2812_LED is always a one-dimensional array
+     * By calculating the relationship between rows and columns, it is mapped to a one-dimensional array
+     */
     for (int i = 0; i < WS2812_LED_COL; i++)
     {
         for (int j = 0; j < WS2812_LED_ROW; j++)
@@ -87,8 +131,13 @@ void WS2812_LEDConnectInit(void)
         }
     }
 #elif WS2812_LED_CONNECT == WS2812_CONNECT_3D
-    // 3D连接方式，默认每一层的最后一个灯的数据是下一层的第一个灯的数据。
-    // WS2812_LED 始终为一维数组，通过计算行和列的关系，将其映射到一维数组中
+    /* In 3D connection mode,
+     * by default the data of the last light in each layer is the data of the first light in the next layer.
+     */
+
+    /* WS2812_LED is always a one-dimensional array.
+     * By calculating the relationship between rows and columns, it is mapped to a one-dimensional array.
+     */
     for (int i = 0; i < WS2812_LED_COL; i++)
     {
         for (int j = 0; j < WS2812_LED_ROW; j++)
@@ -107,6 +156,7 @@ void WS2812_LEDConnectInit(void)
 #endif
 }
 
+#if !WS2812_USE_SPI
 void WS2812_DMA_Callback(DMAV2_Type *ptr, uint32_t channel, void *user_data)
 {
     (void)ptr;
@@ -167,7 +217,7 @@ void DMA_Init()
         if (status_success !=
             dma_mgr_config_linked_descriptor(resource, &ch_config, (dma_mgr_linked_descriptor_t *)&descriptors[i]))
         {
-            printf("generate dma desc fail\n");
+            WS2812_DEBUG("generate dma desc fail\n");
             return;
         }
         descriptors[i].ctrl &= ~DMA_MGR_INTERRUPT_MASK_TC;
@@ -196,7 +246,7 @@ void DMA_Init()
 #endif
     if (status_success != dma_mgr_setup_channel(resource, &ch_config))
     {
-        printf("DMA setup channel failed\n");
+        WS2812_DEBUG("DMA setup channel failed\n");
         return;
     }
     //    dma_mgr_setup_channel(resource, &ch_config);
@@ -204,19 +254,44 @@ void DMA_Init()
     dma_mgr_enable_chn_irq(resource, DMA_MGR_INTERRUPT_MASK_TC);
     dma_mgr_enable_dma_irq_with_priority(resource, 1);
 }
+#else
+void spi_txdma_complete_callback(uint32_t channel)
+{
+    (void)channel;
+    dma_is_done = true;
+}
+#endif
 
 void WS2812_Init(void)
 {
+#if !WS2812_USE_SPI
     HPM_IOC->PAD[_WS2812_DIN_PIN].FUNC_CTL = IOC_PAD_FUNC_CTL_ALT_SELECT_SET(0); // 初始化GPIO
     gpiom_set_pin_controller(HPM_GPIOM, GPIO_GET_PORT_INDEX(_WS2812_DIN_PIN), GPIO_GET_PIN_INDEX(_WS2812_DIN_PIN),
                              gpiom_soc_gpio0);
     gpio_set_pin_output(HPM_GPIO0, GPIO_GET_PORT_INDEX(_WS2812_DIN_PIN), GPIO_GET_PIN_INDEX(_WS2812_DIN_PIN));
     gpio_write_pin(HPM_GPIO0, GPIO_GET_PORT_INDEX(_WS2812_DIN_PIN), GPIO_GET_PIN_INDEX(_WS2812_DIN_PIN), 0);
 
-    _gptmr_freq = clock_get_frequency(_WS2812_GPTMR_NAME);  // 获取GPTMR的频率
-    _bit0_pluse_width = _gptmr_freq / _WS2812_Freq / 3;     // 0的脉冲宽度
-    _bit1_pluse_width = _gptmr_freq / _WS2812_Freq * 2 / 3; // 1的脉冲宽度
+    _gptmr_freq = clock_get_frequency(_WS2812_GPTMR_NAME);  // Get the frequency of GPTMR
+    _bit0_pluse_width = _gptmr_freq / _WS2812_Freq / 3;     // Pulse width of 0
+    _bit1_pluse_width = _gptmr_freq / _WS2812_Freq * 2 / 3; // Pulse width of 1
+#else
+    HPM_IOC->PAD[IOC_PAD_PB13].FUNC_CTL = IOC_PAD_FUNC_CTL_ALT_SELECT_SET(5);
+    /* step.1  initialize spi */
+    spi_init();
+    /* step.2  set spi sclk frequency for master */
+    if (hpm_spi_set_sclk_frequency(WS2812_SPI, WS212_SPI_FREQ) != status_success) {
+        WS2812_DEBUG("hpm_spi_set_sclk_frequency fail\n");
+        while (1) {
+        }
+    }
 
+    /* step.3 install dma callback if want use dma */
+    if (hpm_spi_dma_install_callback(WS2812_SPI, spi_txdma_complete_callback, NULL) != status_success) {
+        WS2812_DEBUG("hpm_spi_dma_install_callback fail\n");
+        while (1) {
+        }
+    }
+#endif
     WS2812_LEDConnectInit();
     for (int i = 0; i < WS2812_LED_NUM; i++)
     {
@@ -227,24 +302,32 @@ void WS2812_Init(void)
     {
         for (int j = 0; j < 24; j++)
         {
-            WS2812_LED_Buffer[i][j] = UINT32_MAX;
+#if !WS2812_USE_SPI
+            WS2812_LED_Buffer[i][j] = (sizeof(buffer_type) == 1) ? UINT8_MAX : UINT32_MAX;
+#else
+            WS2812_LED_Buffer[i][j] = 0;
+#endif
         }
     }
-
-    HPM_IOC->PAD[_WS2812_DIN_PIN].FUNC_CTL = _WS2812_DIN_FUNC; // 初始化GPIO
+#if !WS2812_USE_SPI
+    HPM_IOC->PAD[_WS2812_DIN_PIN].FUNC_CTL = _WS2812_DIN_FUNC; // Initialize GPIO
     dma_mgr_request_resource(&dma_resource_pool);
-    DMA_Init();   // 初始化DMA
-    GPTMR_Init(); // 初始化GPTMR
+    DMA_Init();   // Initialize DMA
+    GPTMR_Init(); // Initialize GPTMR
+#else
+
+#endif
 }
 
-void WS2812_Update(void)
+void WS2812_Update(bool blocking)
 {
     for (int index = 0; index < WS2812_LED_NUM; index++)
     {
-        uint32_t *buf = &WS2812_LED_Buffer[index][0];
+        buffer_type *buf = &WS2812_LED_Buffer[index][0];
         // GRB
         for (int i = 0; i < 8; i++)
         {
+#if !WS2812_USE_SPI
             if (WS2812_Buffer[index].g & (1 << (7 - i)))
             {
                 buf[i] = _bit0_pluse_width;
@@ -271,19 +354,41 @@ void WS2812_Update(void)
             {
                 buf[i + 16] = _bit1_pluse_width;
             }
+#else
+            WS2812_RGB_t rgb = WS2812_Buffer[index];
+            buf[i]  = (rgb.g & 0x01) ? _bit1_pluse_width : _bit0_pluse_width;
+            buf[i + 8] = (rgb.r & 0x01) ? _bit1_pluse_width : _bit0_pluse_width;
+            buf[i + 16] = (rgb.b & 0x01) ? _bit1_pluse_width : _bit0_pluse_width;
+            rgb.r >>= 1;
+            rgb.g >>= 1;
+            rgb.b >>= 1;
+#endif
         }
-//        printf("index: %d, r: %d, g: %d, b: %d\n", index, WS2812_Buffer[index].r, WS2812_Buffer[index].g, WS2812_Buffer[index].b);
+//        WS2812_DEBUG("index: %d, r: %d, g: %d, b: %d\n", index, WS2812_Buffer[index].r, WS2812_Buffer[index].g, WS2812_Buffer[index].b);
     }
-
-    while (!dma_is_done)
-        ;
+#if !WS2812_USE_SPI
+    if (blocking == true) {
+        while (!dma_is_done) {
+        };
+    }
     dma_is_done = false;
 
-    DMA_Init();                                                // 每次都重新配置一次
-    HPM_IOC->PAD[_WS2812_DIN_PIN].FUNC_CTL = _WS2812_DIN_FUNC; // 初始化GPIO
+    DMA_Init();                                                // Reconfigure each time
+    HPM_IOC->PAD[_WS2812_DIN_PIN].FUNC_CTL = _WS2812_DIN_FUNC; // Initialize GPIO
 
     dma_mgr_enable_channel(&dma_resource_pool);
     gptmr_start_counter(_WS2812_GPTMR_PTR, WS2812_GPTMR_CHANNLE);
+#else
+    if (hpm_spi_transmit_nonblocking(WS2812_SPI, (buffer_type *)&WS2812_LED_Buffer[0][0], WS2812_LED_NUM * 24) != status_success) {
+        WS2812_DEBUG("hpm_spi_transmit_receive_nonblocking fail\n");
+        return;
+    }
+    if (blocking == true) {
+        while (!dma_is_done) {
+        };
+        dma_is_done = false;
+    }
+#endif
 }
 
 void WS2812_SetPixel(uint32_t index, uint8_t r, uint8_t g, uint8_t b)
@@ -349,4 +454,9 @@ void WS2812_ReverseMixPixel(uint32_t index, uint8_t r, uint8_t g, uint8_t b)
     {
         WS2812_Buffer[index].b = 0;
     }
+}
+
+void WS2812_Clear_Busy(void)
+{
+    dma_is_done = false;
 }

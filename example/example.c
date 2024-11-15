@@ -27,7 +27,7 @@ int main(void)
         for (int j = 0; j < 256; j++)
         {
             WS2812_SetPixel(0, j, j, j);
-            WS2812_Update();
+            WS2812_Update(true);
             board_delay_ms(100);
         }
     }
@@ -66,7 +66,7 @@ int main(void)
                 WS2812_SetPixel(i, r, g, b);
             }
             printf("r = 0x%02x, g = 0x%02x, b = 0x%02x\n", r, g, b);
-            WS2812_Update();
+            WS2812_Update(true);
             board_delay_ms(100);
         }
     }
