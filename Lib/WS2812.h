@@ -4,39 +4,78 @@
 #include "WS2812_Conf.h"
 #include <stdbool.h>
 
+#ifndef WS2812_DEBUG
+#define WS2812_DEBUG(...)
+#endif
+
 #define CONCATENATE_DETAIL(x, y) x##y
 #define CONCATENATE(x, y)        CONCATENATE_DETAIL(x, y)
 #define STRINGIFY_DETAIL(x)      #x
 
+#if  !WS2812_USE_SPI
 #define _WS2812_DIN_PIN    CONCATENATE(IOC_PAD_, WS2812_DIN)
 #define _WS2812_DIN_FUNC   CONCATENATE(CONCATENATE(CONCATENATE(CONCATENATE(CONCATENATE(IOC_, WS2812_DIN), _FUNC_CTL_GPTMR), WS2812_GPTMR), _COMP_), WS2812_GPTMR_CHANNLE)
 #define _WS2812_GPTMR_NAME CONCATENATE(clock_gptmr, WS2812_GPTMR)
 #define _WS2812_GPTMR_PTR  CONCATENATE(HPM_GPTMR, WS2812_GPTMR)
 #define _WS2812_DMAMUX_SRC CONCATENATE(CONCATENATE(CONCATENATE(HPM_DMA_SRC_GPTMR, WS2812_GPTMR), _), WS2812_GPTMR_CHANNLE)
+#else
 
+#endif
+
+/**
+ * @brief Initialize the RGB
+ *
+ */
 void WS2812_Init(void);
-void WS2812_Update(void);
+
+/**
+ * @brief Update the RGB buffer
+ *
+ * @param blocking whether to wait for the update to complete
+ */
+void WS2812_Update(bool blocking);
+
+/**
+ * @brief Check if the RGB is busy
+ *
+ * @return true RGB is busy
+ * @return false RGB is not busy
+ */
 bool WS2812_IsBusy(void);
 
+/**
+ * @brief Clear the busy flag
+ *
+ */
+void WS2812_Clear_Busy(void);
+
+/**
+ * @brief Set the RGB value of the specified RGB index
+ *
+ * @param index RGB index
+ * @param r red
+ * @param g green
+ * @param b blue
+ */
 void WS2812_SetPixel(uint32_t index, uint8_t r, uint8_t g, uint8_t b);
 
 /**
- * @brief 将现在的RGB值混合之前的RGB值
+ * @brief Mix the current RGB value with the previous RGB value
  *
- * @param index 灯珠索引
- * @param r 红色
- * @param g 绿色
- * @param b 蓝色
+ * @param index RGB index
+ * @param r red
+ * @param g green
+ * @param b blue
  */
 void WS2812_MixPixel(uint32_t index, uint8_t r, uint8_t g, uint8_t b);
 
 /**
- * @brief 将现在的RGB值逆混合之前的RGB值
+ * @brief nversely mix the current RGB value with the previous RGB value
  *
- * @param index 灯珠索引
- * @param r 红色
- * @param g 绿色
- * @param b 蓝色
+ * @param index RGB index
+ * @param r red
+ * @param g green
+ * @param b blue
  */
 void WS2812_ReverseMixPixel(uint32_t index, uint8_t r, uint8_t g, uint8_t b);
 

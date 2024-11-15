@@ -4,6 +4,11 @@
 #include "WS2812_Type.h"
 #include <stdint.h>
 
+#ifndef WS2812_USE_SPI
+#define WS2812_USE_SPI      (1U)
+#endif
+
+#if  !WS2812_USE_SPI
 #define WS2812_DIN           PA02
 #define WS2812_GPTMR         1
 #define WS2812_GPTMR_CHANNLE 1
@@ -12,11 +17,16 @@
 #define WS2812_DMA_CHANNLE (0U)
 #define WS2812_DMAMUX      HPM_DMAMUX
 #define WS2812_DMA_IRQ     IRQn_HDMA
+#else
+#define WS2812_SPI         HPM_SPI2
+#define WS2812_SPI_CLCOK   clock_spi2
+#define WS2812_DIN         IOC_PAD_PB13     /* SPI MOSI */
+#endif
 
 #define WS2812_LED_CONNECT WS2812_CONNECT_LINE
 
 #if WS2812_LED_CONNECT == WS2812_CONNECT_LINE
-#define WS2812_LED_NUM 1
+#define WS2812_LED_NUM 17
 #elif WS2812_LED_CONNECT == WS2812_CONNECT_MATRIX
 #define WS2812_LED_COL 5 // 行
 #define WS2812_LED_ROW 5 // 列
