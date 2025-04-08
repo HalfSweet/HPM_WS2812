@@ -77,7 +77,7 @@ static void spi_init(void)
     spi_initialize_config_t init_config;
     clock_add_to_group(WS2812_SPI_CLCOK, 0);
     hpm_spi_get_default_init_config(&init_config);
-    init_config.direction = msb_first;
+    init_config.direction = spi_msb_first;
     init_config.mode = spi_master_mode;
     init_config.clk_phase = spi_sclk_sampling_odd_clk_edges;
     init_config.clk_polarity = spi_sclk_low_idle;
@@ -275,7 +275,7 @@ void WS2812_Init(void)
     _bit0_pluse_width = _gptmr_freq / _WS2812_Freq / 3;     // Pulse width of 0
     _bit1_pluse_width = _gptmr_freq / _WS2812_Freq * 2 / 3; // Pulse width of 1
 #else
-    HPM_IOC->PAD[IOC_PAD_PB13].FUNC_CTL = IOC_PAD_FUNC_CTL_ALT_SELECT_SET(5);
+    HPM_IOC->PAD[WS2812_DIN].FUNC_CTL = IOC_PAD_FUNC_CTL_ALT_SELECT_SET(5);
     /* step.1  initialize spi */
     spi_init();
     /* step.2  set spi sclk frequency for master */
@@ -286,7 +286,7 @@ void WS2812_Init(void)
     }
 
     /* step.3 install dma callback if want use dma */
-    if (hpm_spi_dma_install_callback(WS2812_SPI, spi_txdma_complete_callback, NULL) != status_success) {
+    if (hpm_spi_dma_mgr_install_callback(WS2812_SPI, spi_txdma_complete_callback, NULL) != status_success) {
         WS2812_DEBUG("hpm_spi_dma_install_callback fail\n");
         while (1) {
         }
@@ -324,6 +324,9 @@ void WS2812_Update(bool blocking)
     for (int index = 0; index < WS2812_LED_NUM; index++)
     {
         buffer_type *buf = &WS2812_LED_Buffer[index][0];
+#if WS2812_USE_SPI
+        WS2812_RGB_t rgb = WS2812_Buffer[index];
+#endif
         // GRB
         for (int i = 0; i < 8; i++)
         {
@@ -355,13 +358,12 @@ void WS2812_Update(bool blocking)
                 buf[i + 16] = _bit1_pluse_width;
             }
 #else
-            WS2812_RGB_t rgb = WS2812_Buffer[index];
-            buf[i]  = (rgb.g & 0x01) ? _bit1_pluse_width : _bit0_pluse_width;
-            buf[i + 8] = (rgb.r & 0x01) ? _bit1_pluse_width : _bit0_pluse_width;
-            buf[i + 16] = (rgb.b & 0x01) ? _bit1_pluse_width : _bit0_pluse_width;
-            rgb.r >>= 1;
-            rgb.g >>= 1;
-            rgb.b >>= 1;
+            buf[i]  = (rgb.g & 0x80) ? _bit1_pluse_width : _bit0_pluse_width;
+            buf[i + 8] = (rgb.r & 0x80) ? _bit1_pluse_width : _bit0_pluse_width;
+            buf[i + 16] = (rgb.b & 0x80) ? _bit1_pluse_width : _bit0_pluse_width;
+            rgb.r <<= 1;
+            rgb.g <<= 1;
+            rgb.b <<= 1;
 #endif
         }
 //        WS2812_DEBUG("index: %d, r: %d, g: %d, b: %d\n", index, WS2812_Buffer[index].r, WS2812_Buffer[index].g, WS2812_Buffer[index].b);
